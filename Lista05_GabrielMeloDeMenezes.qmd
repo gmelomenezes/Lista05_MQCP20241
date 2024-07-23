@@ -1,0 +1,85 @@
+---
+title: "Lista05_GabrielMelodeMenezes"
+format: html
+editor: visual
+---
+
+## Hipótese
+
+A hipótese de trabalho é de que um aumento na variável de antipartidarismo causaria um aumento na variável de volatilidade eleitoral, tanto legislativa quanto presidencial, nos países da América Latina.
+
+## Teste Utilizado
+
+A escolha do teste de correlação linear foi motivada pelo objetivo de avaliar o relacionamento entre antipartidarismo e volatilidade eleitoral, bem como a intensidade dessa relação. A correlação linear é uma ferramenta estatística poderosa que permite identificar a força e a direção do relacionamento entre duas variáveis contínuas. A principal limitação deste teste é que, apesar de indicar a possibilidade de relação estatisticamente significante entre duas variáveis, isto ainda não é um indicativo total de causalidade, precisando de um arcabouço teórico robusto para o entendimento da relação de causa e efeito.
+
+## Realizando a Correlação Linear
+
+Carregando os pacotes necessários e os dados para mesclagem das bases de dados.
+
+Anti_part \<- base de dados manipulada em listas anteriores com base no LAPOP
+
+Vol_leg e Vol_pres \<- banco de dados do trabalho "**Electoral Volatility in Latin America, 1932–2018**" por Mainwaring e Su (2021)
+
+```{r pacotes e data}
+
+knitr::opts_chunk$set(warning = FALSE, results = FALSE)
+
+pacman::p_load("tidyverse","haven","lubridate","janitor","readxl", "infer", "credentials", "ggpubr")
+
+credentials::set_github_pat()
+
+load("dados/antipartisanship.RData")
+
+anti_part <- lapop2
+rm(lapop2)
+
+vol_leg <- read_dta("dados/LAEVD lower chamber elections replication dataset.dta")
+
+vol_pres <- read_dta("dados/LAEVD presidential elections replication dataset.dta")
+```
+
+Mesclando as bases de dados com base no ano da eleição de cada país:
+
+```{r manipulação}
+
+knitr::opts_chunk$set(warning = FALSE, results = FALSE)
+
+anti_part <- anti_part %>%
+  mutate(election_year = wave,
+         pais = case_when(pais == "Brasil" ~ "Brazil",
+                          pais == "México" ~ "Mexico",
+                          pais == "Panamá" ~ "Panama",
+                          pais == "Perú" ~ "Peru",
+                          pais == "República Dominicana" ~ "Dominican Republic",
+                          TRUE ~ pais),
+         country = toupper(pais)) %>%
+  unite("country_election_year", country, election_year, sep = "_") %>%
+  select(country_election_year, anti_part)
+
+vol_leg <- vol_leg %>%
+  unite("country_election_year", country, election_year, sep = "_")
+  
+legislative <- inner_join(anti_part, vol_leg, by = "country_election_year")
+
+vol_pres <- vol_pres %>%
+  unite("country_election_year", country, election_year, sep = "_")
+
+presidential <- inner_join(anti_part, vol_pres, by = "country_election_year")
+```
+
+Gerando gráficos e testes de correlação para a volatilidade eleitoral legislativa e presidencial:
+
+```{r gráficos e testes}
+
+knitr::opts_chunk$set(warning = FALSE)
+  
+legislative %>% ggscatter(x = "anti_part", y = "volatility",
+                 add = "reg.line", conf.int = T) +
+  stat_cor(method = "pearson")
+
+presidential %>% ggscatter(x = "anti_part", y = "volatility",
+                 add = "reg.line", conf.int = T) +
+  stat_cor(method = "pearson")
+```
+
+Observa-se que há um relacionamento positivo entre as variáveis em ambos os casos, como foi teorizado na hipótese. Porém, para a variável volatilidade legislativa, o efeito positivo é menos e não é estatisticamente significante para o nível de confiança de 95%.
